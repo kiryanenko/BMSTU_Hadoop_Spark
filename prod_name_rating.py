@@ -1,6 +1,9 @@
 # Напишите программу, которая каждому ProdId из "avg_rating.csv" ставит в соответстие названием продукта.
 # Результат сохранить в HDFS в файле "prodname_avg_rating.csv": ProdId,Name,Rating
 
+# Запуск
+# spark-submit prod_name_rating.py
+
 import json
 
 from pyspark import SparkContext, SparkConf
