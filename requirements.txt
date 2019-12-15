@@ -1,1 +1,4 @@
+kafka
 pyspark
+tweepy
+kafka-python
