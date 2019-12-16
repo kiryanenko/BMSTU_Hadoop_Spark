@@ -22,7 +22,7 @@ field = [
     StructField("id", StringType(), False),
     StructField("screen_name", StringType(), False),
     StructField("text", StringType(), False),
-    StructField("retweet_cnt", IntegerType(), False)
+    StructField("answers_cnt", IntegerType(), False)
 ]
 schema = StructType(field)
 
@@ -40,33 +40,33 @@ ssc.checkpoint(SPARK_CHECKPOINT_TMP_DIR)
 kafka_stream = KafkaUtils.createDirectStream(ssc, topics=[KAFKA_TOPIC],
                                              kafkaParams={"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS})
 # Дисериализую json
-retweets = kafka_stream.mapValues(json.loads)
+answers = kafka_stream.mapValues(json.loads)
 
 
 # Обновляю состояния
-def update_state_retweet(new_retweets, prev_state):
+def update_state_answers(new_answers, prev_state):
     if prev_state is None:
-        prev_state = new_retweets[0]
-        prev_state['retweet_cnt'] = 0
-    prev_state['retweet_cnt'] += len(new_retweets)
+        prev_state = new_answers[0]
+        prev_state['answers_cnt'] = 0
+    prev_state['answers_cnt'] += len(new_answers)
     return prev_state
 
 
-total_counts = retweets.updateStateByKey(update_state_retweet)
+total_counts = answers.updateStateByKey(update_state_answers)
 # Сортировка
-total_counts = total_counts.transform(lambda rdd: rdd.sortBy(lambda raw: raw[1]['retweet_cnt'], ascending=False))
+total_counts = total_counts.transform(lambda rdd: rdd.sortBy(lambda raw: raw[1]['answers_cnt'], ascending=False))
 total_counts.pprint()
 
 
 # Записываем в файл результат, предварительно превратив rdd в dataframe
 def save(rdd):
     rdd\
-        .map(lambda raw: (raw[0], raw[1]['screen_name'], raw[1]['text'], raw[1]['retweet_cnt']))\
+        .map(lambda raw: (raw[0], raw[1]['screen_name'], raw[1]['text'], raw[1]['answers_cnt']))\
         .toDF(schema).coalesce(1).write\
         .option("header", "false")\
         .format("csv")\
         .mode("overwrite")\
-        .save('out/retweets_cnt')
+        .save('out/answers_cnt')
 
 
 total_counts.foreachRDD(save)
@@ -77,7 +77,7 @@ ssc.start()
 # Ожидаем заверешения через 30 минут
 ssc.awaitTermination(1800)
 # Выгружаем файл, в которой сохраняли данные
-total_counts_loaded = sqlContext.read.load(path="out/retweets_cnt", format="csv", header="false",
+total_counts_loaded = sqlContext.read.load(path="out/answers_cnt", format="csv", header="false",
                                            sep=',', shema=schema)
 # Отображаем 5 сообщений с наибольшими ретвитами
 total_counts_loaded.show(5)
